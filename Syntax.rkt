@@ -102,6 +102,27 @@
   lower : e -> e
   [(lower e) (lower/ctx () e)])
 
+;; Free variables and closing them
+
+#|
+(define-metafunction ITT
+  free-vars : e -> (x ...)
+  [(free-vars x) (x)
+
+(define-metafunction Lambda
+  close : any any -> any
+  [(close any_1 any_2)
+   (let ([x any_2] ...) any_1)
+   (where (x ...) (fv any_1))])
+
+; Stolen from Matthias
+(define ((close-over-fv-with lambda?) e
+         #:init (i (term (lambda (x) x))))
+  ; this is to work around a bug in redex-check; doesn't always work
+  (if (lambda? e) (term (close ,e ,i)) i))
+
+|#
+
 ;; ITT source sugar helpers
 
 (define-metafunction ITT
@@ -123,7 +144,10 @@
   (test-equal (term (lower (λ (x unit) (λ (x unit) x))))
               (term (bind (lam unit) (bind (lam unit) (V 0)))))
   (test-equal (term (lower (pair (λ (x unit) x) tt tt tt)))
-              (term (pair (bind (lam unit) (V 0)) tt tt tt))))
+              (term (pair (bind (lam unit) (V 0)) tt tt tt)))
+  #;
+  (redex-check ITT e (equal? (lower e) (lower (lower e)))
+               #:prepare (close-all-fv (redex-match? ITT e))))
 
 
 ;;---------------------------------------------------------------------
