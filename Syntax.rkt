@@ -5,25 +5,45 @@
 
 (provide (all-defined-out))
 
-(define-language ITT
-  (e ::= x
-        (e e)
-        (bind x b e)
-        unit
-        tt
-        ★
-        void
-        bool
-        true
-        false
-        (if e e e e)
-        (pair e e e e)
-        (π1 e)
-        (π2 e))
-  (b ::= (λ e)
-         (Π e)
-         (Σ e))
+;; ITT core language
+
+(define-language ITT-core
+  (e ::= (V n)
+         (bind b e)
+         (e e)
+         ★
+         unit
+         tt
+         void
+         exfalso
+         bool
+         true
+         false
+         (if e e e e)
+         (pair e e e e)
+         (π1 e)
+         (π2 e))
+  (b ::= (lam e)
+         (Pi e)
+         (Sig e))
+  (n ::= natural))
+
+;; ITT source language, which desugars to ITT-core
+
+(define-extended-language ITT ITT-core
+  (e ::= ....
+         x
+        (λ x e e)
+        (Π x e e)
+        (Σ x e e))
   (x ::= variable-not-otherwise-mentioned))
+
+;; helpers for sets of variables
+
+(define-metafunction ITT
+  in : x (x ...) -> boolean
+  [(in x (x_1 ... x x_2 ...)) #t]
+  [(in x _) #f])
 
 (define-metafunction ITT
   ∪ : (x ...) ... -> (x ...)
@@ -42,26 +62,68 @@
   [(- (x_1 ...) (x_2 x_3 ...))
    (- (x_1 ...) (x_3 ...))])
 
-(module+ test
-  (test-equal (term (α= (=> unit unit) (Vbind (Π unit) unit))) #t))
+;; lowering ITT to ITT-core
+
+(define-metafunction ITT
+  lower/ctx : (x ...) e -> e
+  [(lower/ctx (x_c1 ... x x_c2 ...) x)
+   (V n)
+   (where n  ,(length (term (x_c1 ...))))
+   (where #f (in x (x_c1 ...)))]
+  [(lower/ctx (x_c ...) (λ x e_t e_b))
+   (bind (lam (lower/ctx (x_c ...) e_t)) (lower/ctx (x x_c ...) e_b))]
+  [(lower/ctx (x_c ...) (Π x e_t1 e_t2))
+   (bind (Pi (lower/ctx (x_c ...) e_t1)) (lower/ctx (x x_c ...) e_t2))]
+  [(lower/ctx (x_c ...) (Σ x e_t1 e_t2))
+   (bind (Sig (lower/ctx (x_c ...) e_t1)) (lower/ctx (x x_c ...) e_t2))]
+  [(lower/ctx (x ...) (V n)) (V n)]
+  [(lower/ctx (x ...) (bind b e))
+   (bind (lower/ctx-bind (x ...) b) (lower/ctx (x ...) e))]
+  [(lower/ctx  (x ...) (e_1 e_2))
+   ((lower/ctx (x ...) e_1) (lower/ctx (x ...) e_2 ))]
+  [(lower/ctx (any e ...) (x ...))
+   (any (lower/ctx e (x ...)) ...)]
+  [(lower/ctx any (x ...)) any])
+
+(define-metafunction ITT
+  lower/ctx-bind : (x ...) b -> b
+  [(lower/ctx-bind (x ...) (lam e))
+   (lam (lower/ctx (x ...) e))]
+  [(lower/ctx-bind (x ...) (Pi e))
+   (Pi (lower/ctx (x ...) e))]
+  [(lower/ctx-bind (x ...) (Sig e))
+   (Sig (lower/ctx (x ...) e))])
+
+(define-metafunction ITT
+  lower : e -> e
+  [(lower e) (lower/ctx () e)])
+
+;; ITT source sugar helpers
 
 (define-metafunction ITT
   => : e e -> e
-  [(=> e_1 e_2) (bind ,(variable-not-in (term e_2) 'arr_x) (Π e_1) e_2)])
+  [(=> e_t1 e_t2) (Π ,(variable-not-in (term e_t2) 'arr_x) e_t1 e_t2)])
 
-(define-metafunction ITT
-  in : x (x ...) -> boolean
-  [(in x (x_1 ... x x_2 ...)) #t]
-  [(in x _) #f])
+;; ITT source terms
+
+(define (id-e e_t) (term (λ x ,e_t x)))
+(define (id-t e_t) (term (=> ,e_t ,e_t)))
 
 (module+ test
-  (test-equal (term (resolve (bind x (λ unit) x)))
-              (term (Vbind (λ unit) (V 0))))
-  (test-equal (term (resolve (bind x (λ unit) (bind x (λ unit) x))))
-              (term (Vbind (λ unit) (Vbind (λ unit) (V 0)))))
-  (test-equal (term (resolve (pair (bind x (λ unit) x) tt tt tt)))
-              (term (pair (Vbind (λ unit) (V 0)) tt tt tt))))
+  ;; test '=>' sugar
+  (test-equal (term (lower (=> unit unit)) (bind (pi unit) unit))
+              #t)
+  ;; test lower
+  (test-equal (term (lower (λ x unit x)))
+              (term (bind (lam unit) (V 0))))
+  (test-equal (term (lower (λ x unit (λ x unit) x)))
+              (term (bind (lam unit) (bind (lam unit) (V 0)))))
+  (test-equal (term (lower (pair (λ x unit x) tt tt tt)))
+              (term (pair (bind (lam unit) (V 0)) tt tt tt))))
 
+;;--------------------------------------------------------------------------------------
+
+;; stopped here -DCD
 (module+ test
   (test-equal (term (free-vars ,dapp)) (term ()))
   (test-equal (term (free-vars x)) (term (x)))
@@ -83,33 +145,6 @@
   [(free-vars _) ()])
 
 ;;---------------------------------------------------------------------
-
-(define-extended-language ITT-deBruijn ITT
-  (e ::= .... (V n) (Vbind b e))
-  (n ::= natural))
-
-(define-metafunction ITT-deBruijn
-  resolve/ctx-bind : b (x ...) -> b
-  [(resolve/ctx-bind (λ e) (x ...)) (λ (resolve/ctx e (x ...)))]
-  [(resolve/ctx-bind (Π e) (x ...)) (Π (resolve/ctx e (x ...)))])
-
-(define-metafunction ITT-deBruijn
-  resolve/ctx : e (x ...) -> e
-  [(resolve/ctx x (x_1 ... x x_2 ...))
-   (V n)
-   (where n  ,(length (term (x_1 ...))))
-   (where #f (in x (x_1 ...)))]
-  [(resolve/ctx (e_1 e_2) (x ...))
-   ((resolve/ctx e_1 (x ...)) (resolve/ctx e_2 (x ...)))]
-  [(resolve/ctx (bind x_1 b e) (x_2 ...))
-   (Vbind (resolve/ctx-bind b (x_2 ...)) (resolve/ctx e (x_1 x_2 ...)))]
-  [(resolve/ctx (any e ...) (x ...))
-   (any (resolve/ctx e (x ...)) ...)]
-  [(resolve/ctx any (x ...)) any])
-
-(define-metafunction ITT-deBruijn
-  resolve : e -> e
-  [(resolve e) (resolve/ctx e ())])
 
 (define dapp (term (bind a (λ ★)
                      (bind P (λ (=> a ★))
