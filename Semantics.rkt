@@ -20,6 +20,8 @@
          (pair e C e e)
          (pair e e C e)
          (pair e e e C)
+         (exfalso C e)
+         (exfalso e C)
          (π1 C)
          (π2 C))
   (b-C ::= (lam C)
@@ -81,14 +83,44 @@
   (test-->> -->β
             (term (lower ,test-term-1))
             (term (lower
-                   (λ (x unit) x)))))
+                   (λ (x unit) x))))
+  (test-->> -->β
+            (term (lower (if (λ (x bool) bool) true false true)))
+            (term (lower false)))
+  (test-->> -->β
+            (term (lower (if (λ (x bool) bool) false false true)))
+            (term (lower true)))
+  (test-->> -->β
+            (term (lower ((λ (x bool)
+                            (if (λ (x bool) bool) x false true))
+                          false)))
+            (term (lower true)))
+  (test-->> -->β
+            (term (lower (π1 (pair bool (λ (x bool) unit) true tt))))
+            (term (lower true)))
+  (test-->> -->β
+            (term (lower (π2 (pair bool (λ (x bool) unit) true tt))))
+            (term (lower tt))))
 
 (define -->β
   (reduction-relation
    ITT-C
    (--> (in-hole C ((bind (lam ty) tm_body) tm_arg))
         (in-hole C (instantiate tm_arg tm_body))
-        β)))
+        β)
+   (--> (in-hole C (if _ true tm_t tm_f))
+        (in-hole C tm_t)
+        β-if-true)
+   (--> (in-hole C (if _ false tm_t tm_f))
+        (in-hole C tm_f)
+        β-if-false)
+   (--> (in-hole C (π1 (pair _ _ tm _)))
+        (in-hole C tm)
+        β-pair-π1)
+   (--> (in-hole C (π2 (pair _ _ _ tm)))
+        (in-hole C tm)
+        β-pair-π2)))
+   
 
 #;
 (traces -->β (term (lower ,test-term-1)))

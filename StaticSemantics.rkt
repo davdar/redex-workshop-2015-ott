@@ -40,6 +40,11 @@
                                         ((bind (lam ★) (V 0))
                                          (bind (Pi unit) ★))))
               #true)
+  (test-equal (judgment-holds (check-type (void)
+                                          (lower/ctx (nope)
+                                                     (exfalso unit nope))
+                                          unit))
+              #true)
   #;(current-traced-metafunctions 'all)
   #;(current-traced-metafunctions '()))
 
@@ -60,21 +65,35 @@
    (infer-type Γ true bool)]  
   [----------------------- "false has type bool"
    (infer-type Γ false bool)]
-  [(where e_t (lookup Γ n))
+  [(check-type Γ ty_fam (bind (Pi bool) ★))
+   (check-type Γ tm_b bool)
+   (check-type Γ tm_t (ty_fam true))
+   (check-type Γ tm_f (ty_fam false))
+   --------------------------------- "bool elim"
+   (infer-type Γ (if ty_fam tm_b tm_t tm_f) (ty_fam tm_b))]
+  [(where ty (lookup Γ n))
    ------------------- "var has type from Γ"
-   (infer-type Γ (V n) e_t)]
-  [(infer-type (e_Γ ...) e_1 ★)
-   (infer-type (e_1 e_Γ ...) e_2 ★)
+   (infer-type Γ (V n) ty)]
+  [(check-type (e_Γ ...) ty_1 ★)
+   (check-type (ty_1 e_Γ ...) ty_2 ★)
    ---------------------------- "pi-formation"
-   (infer-type (e_Γ ...) (bind (Pi e_1) e_2) ★)]
-  [(infer-type (e_Γ ...) e_1 ★)
-   (infer-type (e_1 e_Γ ...) e_2 e_2t)
+   (infer-type (e_Γ ...) (bind (Pi ty_1) ty_2) ★)]
+  [(check-type (e_Γ ...) ty_1 ★)
+   (infer-type (ty_1 e_Γ ...) tm_2 ty_2)
    ---------------------------- "pi-intro"
-   (infer-type (e_Γ ...) (bind (lam e_1) e_2) (bind (Pi e_1) e_2t))]
+   (infer-type (e_Γ ...)
+               (bind (lam ty_1) tm_2)
+               (bind (Pi ty_1) ty_2))]
   [(infer-type Γ e_f (bind (Pi e_xt) e_body))
    (infer-type Γ e_x e_xt)
    ---------------------------- "pi-elim"
    (infer-type Γ (e_f e_x) (instantiate e_x e_body))]
+  [----------------------------- "void-formation"
+   (infer-type Γ void ★)]
+  [(check-type Γ ty ★)
+   (check-type Γ tm_yikes void)
+   ---------------------------------------- "void-elim"
+   (infer-type Γ (exfalso ty tm_yikes) ty)]
   )
 
 (define-judgment-form ITT-C-Check

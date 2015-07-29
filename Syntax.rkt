@@ -15,7 +15,7 @@
                unit
                tt
                void
-               exfalso
+               (exfalso ty tm)
                bool
                true
                false
