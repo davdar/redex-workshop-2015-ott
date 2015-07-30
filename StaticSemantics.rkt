@@ -69,6 +69,21 @@
                                                         unit
                                                         bool)))))
               #true)
+  (test-equal (judgment-holds (check-type ()
+                                          (lower (π1 (: (pair true false)
+                                                        (Σ (x bool) bool))))
+                                          bool))
+              #true)
+  (test-equal (judgment-holds (check-type ()
+                                          (lower (π2 (: (pair true false)
+                                                        (Σ (x bool)
+                                                           (if (λ (y bool)
+                                                                 ★)
+                                                               x
+                                                               bool
+                                                               unit)))))
+                                          bool))
+              #true)
   #;(current-traced-metafunctions 'all)
   #;(current-traced-metafunctions '()))
 
@@ -122,6 +137,15 @@
    (check-type (ty_fst ty_Γ ...) ty_snd ★)
    ------------------------------------------ "Σ-formation"
    (infer-type (ty_Γ ...) (bind (Sig ty_fst) ty_snd) ★)]
+  [(infer-type Γ tm (bind (Sig ty_fst) ty_snd))
+   -------------------------------------------- "fst"
+   (infer-type Γ (π1 tm) ty_fst)]
+  [(infer-type Γ tm (bind (Sig ty_fst) ty_snd))
+   -------------------------------------------- "snd"
+   (infer-type Γ (π2 tm) (instantiate (π1 tm) ty_snd))]
+  [(check-type Γ tm ty)
+   -------------------- "mode-switch"
+   (infer-type Γ (: tm ty) ty)]
   )
 
 (define-judgment-form ITT-C-Check
@@ -135,7 +159,8 @@
    (check-type Γ tm_snd (instantiate tm_fst ty_snd))
    (check-type Γ (bind (Sig ty_fst) ty_snd) ★)
    ------------------------------------------------- "Σ-introduction"
-   (check-type Γ (pair tm_fst tm_snd) (bind (Sig ty_fst) ty_snd))])
+   (check-type Γ (pair tm_fst tm_snd) (bind (Sig ty_fst) ty_snd))]
+ )
    
 (module+ test
   (test-equal (judgment-holds (equal-types () unit unit)) #true)

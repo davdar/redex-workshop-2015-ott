@@ -21,7 +21,9 @@
          (exfalso C e)
          (exfalso e C)
          (π1 C)
-         (π2 C))
+         (π2 C)
+         (: C e)
+         (: e C))
   (b-C ::= (lam C)
            (Pi C)
            (Sig C)))
@@ -98,7 +100,10 @@
             (term (lower true)))
   (test-->> -->β
             (term (lower (π2 (pair true tt))))
-            (term (lower tt))))
+            (term (lower tt)))
+  (test-->> -->β
+            (term (lower (: true (: bool ★))))
+            (term (lower true))))
 
 (define -->β
   (reduction-relation
@@ -117,7 +122,10 @@
         β-pair-π1)
    (--> (in-hole C (π2 (pair _ tm)))
         (in-hole C tm)
-        β-pair-π2)))
+        β-pair-π2)
+   (--> (in-hole C (: e _))
+        (in-hole C e)
+        β-strip-:)))
    
 
 #;
