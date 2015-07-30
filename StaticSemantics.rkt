@@ -53,6 +53,22 @@
                                                         bool)))
                                           ★))
               #true)
+  (test-equal (judgment-holds (check-type ()
+                                          (pair true tt)
+                                          (lower (Σ (x bool)
+                                                    (if (λ (y bool) ★)
+                                                        x
+                                                        unit
+                                                        bool)))))
+              #true)
+  (test-equal (judgment-holds (check-type ()
+                                          (pair false true)
+                                          (lower (Σ (x bool)
+                                                    (if (λ (y bool) ★)
+                                                        x
+                                                        unit
+                                                        bool)))))
+              #true)
   #;(current-traced-metafunctions 'all)
   #;(current-traced-metafunctions '()))
 
@@ -114,7 +130,12 @@
   [(infer-type Γ e_1 e_t1)
    (equal-types Γ e_t1 e_t2)
    ---------------------------- "conversion"
-   (check-type Γ e_1 e_t2)])
+   (check-type Γ e_1 e_t2)]
+  [(check-type Γ tm_fst ty_fst)
+   (check-type Γ tm_snd (instantiate tm_fst ty_snd))
+   (check-type Γ (bind (Sig ty_fst) ty_snd) ★)
+   ------------------------------------------------- "Σ-introduction"
+   (check-type Γ (pair tm_fst tm_snd) (bind (Sig ty_fst) ty_snd))])
    
 (module+ test
   (test-equal (judgment-holds (equal-types () unit unit)) #true)

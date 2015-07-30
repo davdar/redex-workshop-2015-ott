@@ -20,7 +20,7 @@
                true
                false
                (if e e e e)
-               (pair e e e e)
+               (pair e e)
                (π1 e)
                (π2 e))
   (b ::= (lam ty)
@@ -143,8 +143,8 @@
               (term (bind (lam unit) (V 0))))
   (test-equal (term (lower (λ (x unit) (λ (x unit) x))))
               (term (bind (lam unit) (bind (lam unit) (V 0)))))
-  (test-equal (term (lower (pair (λ (x unit) x) tt tt tt)))
-              (term (pair (bind (lam unit) (V 0)) tt tt tt)))
+  (test-equal (term (lower (pair (λ (x unit) x) tt)))
+              (term (pair (bind (lam unit) (V 0)) tt)))
   #;
   (redex-check ITT e (equal? (lower e) (lower (lower e)))
                #:prepare (close-all-fv (redex-match? ITT e))))

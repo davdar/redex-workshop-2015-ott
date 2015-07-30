@@ -16,10 +16,8 @@
          (if e C e e)
          (if e e C e)
          (if e e e C)
-         (pair C e e e)
-         (pair e C e e)
-         (pair e e C e)
-         (pair e e e C)
+         (pair C e)
+         (pair e C)
          (exfalso C e)
          (exfalso e C)
          (π1 C)
@@ -96,10 +94,10 @@
                           false)))
             (term (lower true)))
   (test-->> -->β
-            (term (lower (π1 (pair bool (λ (x bool) unit) true tt))))
+            (term (lower (π1 (pair true tt))))
             (term (lower true)))
   (test-->> -->β
-            (term (lower (π2 (pair bool (λ (x bool) unit) true tt))))
+            (term (lower (π2 (pair true tt))))
             (term (lower tt))))
 
 (define -->β
@@ -114,10 +112,10 @@
    (--> (in-hole C (if _ false tm_t tm_f))
         (in-hole C tm_f)
         β-if-false)
-   (--> (in-hole C (π1 (pair _ _ tm _)))
+   (--> (in-hole C (π1 (pair tm _)))
         (in-hole C tm)
         β-pair-π1)
-   (--> (in-hole C (π2 (pair _ _ _ tm)))
+   (--> (in-hole C (π2 (pair _ tm)))
         (in-hole C tm)
         β-pair-π2)))
    
