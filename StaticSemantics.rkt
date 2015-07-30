@@ -45,6 +45,14 @@
                                                      (exfalso unit nope))
                                           unit))
               #true)
+  (test-equal (judgment-holds (check-type ()
+                                          (lower (Σ (x bool)
+                                                    (if (λ (y bool) ★)
+                                                        x
+                                                        unit
+                                                        bool)))
+                                          ★))
+              #true)
   #;(current-traced-metafunctions 'all)
   #;(current-traced-metafunctions '()))
 
@@ -94,6 +102,10 @@
    (check-type Γ tm_yikes void)
    ---------------------------------------- "void-elim"
    (infer-type Γ (exfalso ty tm_yikes) ty)]
+  [(check-type (ty_Γ ...) ty_fst ★)
+   (check-type (ty_fst ty_Γ ...) ty_snd ★)
+   ------------------------------------------ "Σ-formation"
+   (infer-type (ty_Γ ...) (bind (Sig ty_fst) ty_snd) ★)]
   )
 
 (define-judgment-form ITT-C-Check
