@@ -7,6 +7,13 @@
 
 (provide (all-defined-out))
 
+
+(define not-not-equals-id-ty
+    (term (lower (embed (≡ (λ (x bool) (,not-bool (,not-bool x)))
+                           (=> bool bool)
+                           (λ (x bool) x)
+                           (=> bool bool))))))
+
 (define-extended-language ITT-C-Check ITT-C
   (Γ ::= (e ...)))
 
@@ -46,6 +53,18 @@
                                           unit))
               #true)
   (test-equal (judgment-holds (check-type ()
+                                          (lower (Σ (x bool) bool))
+                                          ★))
+              #true)
+  (current-traced-metafunctions '())
+  (test-equal (judgment-holds (check-type (bool)
+                                          (if (bind (lam bool) ★)
+                                              (V 0)
+                                              unit bool)
+                                          ★))
+              #t)
+  
+  (test-equal (judgment-holds (check-type ()
                                           (lower (Σ (x bool)
                                                     (if (λ (y bool) ★)
                                                         x
@@ -53,8 +72,32 @@
                                                         bool)))
                                           ★))
               #true)
+  (current-traced-metafunctions '())
+
   (test-equal (judgment-holds (check-type ()
-                                          (pair true tt)
+                                          (lower (pair bool
+                                                       (λ (x bool)
+                                                         (if (λ (y bool) ★)
+                                                             x
+                                                             unit
+                                                             bool))
+                                                       true tt))
+                                          (lower (Σ (x bool)
+                                                    (if (λ (y bool) ★)
+                                                        x
+                                                        unit
+                                                        bool)))))
+              #true)
+  (current-traced-metafunctions '())
+  (test-equal (judgment-holds (check-type ()
+                                          (lower
+                                           (pair bool
+                                                (λ (x bool)
+                                                  (if (λ (y bool) ★)
+                                                        x
+                                                        unit
+                                                        bool))
+                                                false true))
                                           (lower (Σ (x bool)
                                                     (if (λ (y bool) ★)
                                                         x
@@ -62,30 +105,73 @@
                                                         bool)))))
               #true)
   (test-equal (judgment-holds (check-type ()
-                                          (pair false true)
-                                          (lower (Σ (x bool)
-                                                    (if (λ (y bool) ★)
-                                                        x
-                                                        unit
-                                                        bool)))))
-              #true)
-  (test-equal (judgment-holds (check-type ()
-                                          (lower (π1 (: (pair true false)
-                                                        (Σ (x bool) bool))))
+                                          (lower (π1 (pair bool (λ (x bool) bool) true false)))
                                           bool))
               #true)
   (test-equal (judgment-holds (check-type ()
-                                          (lower (π2 (: (pair true false)
-                                                        (Σ (x bool)
-                                                           (if (λ (y bool)
-                                                                 ★)
-                                                               x
-                                                               bool
-                                                               unit)))))
+                                          (lower (π2 (pair bool
+                                                           (λ (x bool)
+                                                             (if (λ (y bool)
+                                                                   ★)
+                                                                 x
+                                                                 bool
+                                                                 unit))
+                                                           true
+                                                           false)))
                                           bool))
               #true)
+  (test-equal (judgment-holds (is-prop () (∧ (= unit unit) (= unit bool))))
+              #t)
+  
+  (test-equal (judgment-holds (check-type () (coe tt unit tt unit) unit)) #t)
+            
+  (test-equal (judgment-holds (check-type ()
+                                          ,lam-void-coerce
+                                          (lower (=> void void))))
+              #t)
+  (current-traced-metafunctions '())
   #;(current-traced-metafunctions 'all)
-  #;(current-traced-metafunctions '()))
+  #;(current-traced-metafunctions '())
+  
+  #;(current-traced-metafunctions 'all)
+  (test-equal (judgment-holds (check-type ()
+                                          ,not-not-equals-id-ty
+                                          ★))
+              #t)
+  (current-traced-metafunctions 'all)
+  #;(test-equal (judgment-holds (check-type ()
+                                          (lower (λ (x bool)
+                                                   (λ (y bool)
+                                                     tt)))
+                                          ,not-not-equals-id-ty))
+              #t)
+  (current-traced-metafunctions '())
+                                          
+)
+
+(define-judgment-form ITT-C-Check
+  #:mode (is-prop I I)
+  #:contract (is-prop Γ prop)
+  [------------------ "top-prop"
+   (is-prop Γ ⊤)]
+  [------------------ "bot-prop"
+   (is-prop Γ ⊥)]
+  [(is-prop Γ prop_1)
+   (is-prop Γ prop_2)
+   ------------------ "conj-prop"
+   (is-prop Γ (∧ prop_1 prop_2))]
+  [(check-type (ty_Γ ...) ty ★)
+   (is-prop (ty ty_Γ ...) prop)
+   ---------------------------- "forall-prop"
+   (is-prop (ty_Γ ...) (bind (∀ ty) prop))]
+  [(check-type Γ ty_1 ★)
+   (check-type Γ ty_2 ★)
+   ---------------------------- "=-f"
+   (is-prop Γ (= ty_1 ty_2))]
+  [(check-type Γ tm_1 ty_1)
+   (check-type Γ tm_2 ty_2)
+   ------------------------ "≡-f"
+   (is-prop Γ (≡ tm_1 ty_1 tm_2 ty_2))])
 
 (define-judgment-form ITT-C-Check
   #:mode (infer-type I I O)
@@ -124,7 +210,7 @@
                (bind (lam ty_1) tm_2)
                (bind (Pi ty_1) ty_2))]
   [(infer-type Γ e_f (bind (Pi e_xt) e_body))
-   (infer-type Γ e_x e_xt)
+   (check-type Γ e_x e_xt)
    ---------------------------- "pi-elim"
    (infer-type Γ (e_f e_x) (instantiate e_x e_body))]
   [----------------------------- "void-formation"
@@ -133,16 +219,32 @@
    (check-type Γ tm_yikes void)
    ---------------------------------------- "void-elim"
    (infer-type Γ (exfalso ty tm_yikes) ty)]
-  [(check-type (ty_Γ ...) ty_fst ★)
-   (check-type (ty_fst ty_Γ ...) ty_snd ★)
+  [(check-type Γ ty_fst ★)
+   (check-type Γ ty_snd (bind (Pi ty_fst) ★))
    ------------------------------------------ "Σ-formation"
-   (infer-type (ty_Γ ...) (bind (Sig ty_fst) ty_snd) ★)]
-  [(infer-type Γ tm (bind (Sig ty_fst) ty_snd))
+   (infer-type Γ
+               (sigma ty_fst ty_snd)
+               ★)]
+  [(check-type Γ tm_fst ty_fst)
+   (check-type Γ tm_snd (ty_snd tm_fst))
+   (check-type Γ (sigma ty_fst ty_snd) ★)
+   ------------------------------------------------- "Σ-introduction"
+   (infer-type Γ
+               (pair ty_fst ty_snd tm_fst tm_snd)
+               (sigma ty_fst ty_snd))]
+  [(infer-type Γ tm (sigma ty_fst ty_snd))
    -------------------------------------------- "fst"
    (infer-type Γ (π1 tm) ty_fst)]
-  [(infer-type Γ tm (bind (Sig ty_fst) ty_snd))
+  [(infer-type Γ tm (sigma ty_fst ty_snd))
    -------------------------------------------- "snd"
-   (infer-type Γ (π2 tm) (instantiate (π1 tm) ty_snd))]
+   (infer-type Γ (π2 tm) (ty_snd (π1 tm)))]
+  [(is-prop Γ prop)
+   ---------------- "embed-ty"
+   (infer-type Γ (embed prop) ★)]
+  [(check-type Γ tm_s ty_S)
+   (check-type Γ tm_Q (embed (= ty_S ty_T)))
+   ---------------------------------------- "coercion"
+   (infer-type Γ (coe tm_s ty_S tm_Q ty_T) ty_T)]
   [(check-type Γ tm ty)
    -------------------- "mode-switch"
    (infer-type Γ (: tm ty) ty)]
@@ -155,11 +257,15 @@
    (equal-types Γ e_t1 e_t2)
    ---------------------------- "conversion"
    (check-type Γ e_1 e_t2)]
-  [(check-type Γ tm_fst ty_fst)
-   (check-type Γ tm_snd (instantiate tm_fst ty_snd))
-   (check-type Γ (bind (Sig ty_fst) ty_snd) ★)
-   ------------------------------------------------- "Σ-introduction"
-   (check-type Γ (pair tm_fst tm_snd) (bind (Sig ty_fst) ty_snd))]
+  
+
+  [(check-type Γ tm_Q (embed (= ty_S ty_T)))
+   (check-type Γ tm_s ty_S)
+   ---------------------------------------- "reflexivity"
+   (check-type Γ
+               (refl tm_s tm_Q)
+               (embed (≡ tm_s ty_S
+                         (coe tm_s tm_Q) ty_T)))]
  )
    
 (module+ test
